@@ -3,73 +3,564 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FilesClaw</title>
+    <title>FilesClaw - File Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
+        :root {
+            --primary: #0066cc;
+            --bg: #f5f5f5;
+            --card-bg: #ffffff;
+            --text: #333;
+            --text-muted: #666;
+            --border: #e0e0e0;
+            --success: #28a745;
+            --warning: #ffc107;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #f5f5f5;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
         }
+        
+        .header {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
         .container {
-            background: white;
-            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+        
+        .breadcrumb {
+            margin-bottom: 20px;
+            color: var(--text-muted);
+        }
+        
+        .breadcrumb a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
+        .breadcrumb a:hover { text-decoration: underline; }
+        
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .file-card {
+            background: var(--card-bg);
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            border: 1px solid var(--border);
         }
-        h1 { color: #333; }
-        .status { 
-            color: #28a745; 
-            font-weight: bold;
+        
+        .file-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
         }
-        .info {
-            background: #e7f3ff;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 20px 0;
-            border-left: 4px solid #0066cc;
+        
+        .file-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
         }
-        code {
+        
+        .file-name {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+        
+        .file-meta {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        
+        .viewer {
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .viewer-header {
+            background: #fafafa;
+            border-bottom: 1px solid var(--border);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .viewer-title {
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        .viewer-actions button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 8px;
+        }
+        
+        .viewer-actions button:hover { opacity: 0.9; }
+        
+        .viewer-actions button.secondary {
             background: #f0f0f0;
+            color: var(--text);
+        }
+        
+        .viewer-content {
+            padding: 30px;
+            max-height: 70vh;
+            overflow: auto;
+        }
+        
+        .viewer-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            display: block;
+            margin: 20px 0;
+        }
+        
+        .viewer-content.markdown {
+            font-size: 16px;
+            line-height: 1.8;
+        }
+        
+        .viewer-content.markdown h1,
+        .viewer-content.markdown h2,
+        .viewer-content.markdown h3 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            color: var(--text);
+        }
+        
+        .viewer-content.markdown pre {
+            background: #f6f8fa;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 16px 0;
+        }
+        
+        .viewer-content.markdown code {
+            background: #f6f8fa;
             padding: 2px 6px;
             border-radius: 3px;
             font-family: 'SF Mono', Monaco, Consolas, monospace;
+            font-size: 14px;
         }
+        
+        .viewer-content.markdown blockquote {
+            border-left: 4px solid var(--primary);
+            padding-left: 16px;
+            margin: 16px 0;
+            color: var(--text-muted);
+        }
+        
+        .viewer-content.markdown table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 16px 0;
+        }
+        
+        .viewer-content.markdown th,
+        .viewer-content.markdown td {
+            border: 1px solid var(--border);
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .viewer-content.markdown th {
+            background: #f6f8fa;
+            font-weight: 600;
+        }
+        
+        .image-viewer {
+            text-align: center;
+        }
+        
+        .image-viewer img {
+            max-width: 100%;
+            max-height: 60vh;
+            margin: 0 auto;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f0f0f0;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+        
+        .hidden { display: none; }
+        
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            color: var(--primary);
+            text-decoration: none;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .back-button:hover { text-decoration: underline; }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #e6f4ea;
+            color: var(--success);
+        }
+        
+        .file-type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-left: 8px;
+        }
+        
+        .badge-md { background: #0066cc22; color: var(--primary); }
+        .badge-img { background: #9c27b022; color: #9c27b0; }
+        .badge-pdf { background: #f4433622; color: #f44336; }
+        .badge-txt { background: #4caf5022; color: #4caf50; }
+        .badge-json { background: #ff980022; color: #ff9800; }
+        .badge-other { background: #9e9e9e22; color: #9e9e9e; }
     </style>
 </head>
 <body>
+    <header class="header">
+        <a href="/" class="logo">📁 FilesClaw</a>
+        <span class="status-badge">✅ Active</span>
+    </header>
+    
     <div class="container">
-        <h1>📁 FilesClaw</h1>
-        <p class="status">✅ GitHub Pages Active</p>
+        <div id="breadcrumb" class="breadcrumb"></div>
         
-        <div class="info">
-            <strong>Repository:</strong> 
-            <a href="https://github.com/krishanbansal000-cmyk/FilesClaw">
-                github.com/krishanbansal000-cmyk/FilesClaw
-            </a>
+        <!-- File List View -->
+        <div id="fileList" class="file-grid"></div>
+        
+        <!-- Loading State -->
+        <div id="loading" class="loading hidden">
+            <div class="loading-spinner"></div>
+            <p>Loading files...</p>
         </div>
         
-        <p>This is the FilesClaw repository for storing and sharing analysis files, reports, and documents.</p>
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-state hidden">
+            <div class="empty-state-icon">📂</div>
+            <h2>No files yet</h2>
+            <p>Upload files to the repository to see them here</p>
+        </div>
         
-        <h2>Quick Links</h2>
-        <ul>
-            <li><a href="https://github.com/krishanbansal000-cmyk/FilesClaw">View on GitHub</a></li>
-            <li><a href="https://github.com/krishanbansal000-cmyk/FilesClaw/tree/main">Browse Files</a></li>
-        </ul>
-        
-        <p style="color: #666; font-size: 14px; margin-top: 40px;">
-            Last updated: <span id="date"></span>
-        </p>
+        <!-- File Viewer -->
+        <div id="viewer" class="viewer hidden">
+            <div class="viewer-header">
+                <span id="viewerTitle" class="viewer-title"></span>
+                <div class="viewer-actions">
+                    <button class="secondary" onclick="closeViewer()">← Back</button>
+                    <button onclick="downloadFile()">Download</button>
+                    <button class="secondary" onclick="openRaw()">Raw</button>
+                </div>
+            </div>
+            <div id="viewerContent" class="viewer-content"></div>
+        </div>
     </div>
     
     <script>
-        document.getElementById('date').textContent = new Date().toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
+        const REPO = 'krishanbansal000-cmyk/FilesClaw';
+        const BASE_URL = `https://api.github.com/repos/${REPO}/contents`;
+        const RAW_URL = `https://raw.githubusercontent.com/${REPO}/main`;
+        
+        let currentFile = null;
+        let currentPath = '';
+        
+        // File type icons
+        const fileIcons = {
+            md: '📄',
+            txt: '📝',
+            pdf: '📕',
+            jpg: '🖼️',
+            jpeg: '🖼️',
+            png: '🖼️',
+            gif: '🖼️',
+            webp: '🖼️',
+            svg: '🖼️',
+            json: '📊',
+            csv: '📈',
+            html: '🌐',
+            js: '📜',
+            css: '🎨',
+            default: '📁'
+        };
+        
+        const badgeClasses = {
+            md: 'badge-md',
+            txt: 'badge-txt',
+            pdf: 'badge-pdf',
+            jpg: 'badge-img',
+            jpeg: 'badge-img',
+            png: 'badge-img',
+            gif: 'badge-img',
+            webp: 'badge-img',
+            svg: 'badge-img',
+            json: 'badge-json',
+            default: 'badge-other'
+        };
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            const path = new URLSearchParams(window.location.search).get('path') || '';
+            loadFiles(path);
         });
+        
+        // Load files from GitHub API
+        async function loadFiles(path = '') {
+            showLoading();
+            
+            try {
+                const url = path ? `${BASE_URL}/${path}` : BASE_URL;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        showEmpty();
+                    } else {
+                        throw new Error('Failed to load files');
+                    }
+                    return;
+                }
+                
+                const files = await response.json();
+                currentPath = path;
+                renderFiles(files);
+            } catch (error) {
+                console.error('Error loading files:', error);
+                showEmpty();
+            }
+        }
+        
+        // Render file list
+        function renderFiles(files) {
+            const container = document.getElementById('fileList');
+            container.innerHTML = '';
+            
+            if (files.length === 0) {
+                showEmpty();
+                return;
+            }
+            
+            files.forEach(file => {
+                if (file.name === 'index.html') return; // Skip index.html
+                
+                const ext = file.name.split('.').pop().toLowerCase();
+                const icon = fileIcons[ext] || fileIcons.default;
+                const badgeClass = badgeClasses[ext] || badgeClasses.default;
+                const badgeText = ext.toUpperCase();
+                
+                const card = document.createElement('div');
+                card.className = 'file-card';
+                card.onclick = () => openFile(file);
+                
+                card.innerHTML = `
+                    <div class="file-icon">${icon}</div>
+                    <div class="file-name">${file.name}</div>
+                    <div class="file-meta">
+                        ${file.size ? formatSize(file.size) : 'Folder'}
+                        <span class="file-type-badge ${badgeClass}">${badgeText}</span>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+            
+            hideLoading();
+        }
+        
+        // Open file viewer
+        async function openFile(file) {
+            if (file.type === 'dir') {
+                window.location.search = `?path=${file.path}`;
+                return;
+            }
+            
+            currentFile = file;
+            showViewer(file.name);
+            
+            const ext = file.name.split('.').pop().toLowerCase();
+            const contentEl = document.getElementById('viewerContent');
+            
+            try {
+                const response = await fetch(file.download_url);
+                
+                if (ext === 'md') {
+                    // Markdown rendering
+                    const text = await response.text();
+                    contentEl.className = 'viewer-content markdown';
+                    contentEl.innerHTML = marked.parse(text);
+                } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
+                    // Image viewing
+                    contentEl.className = 'viewer-content image-viewer';
+                    contentEl.innerHTML = `<img src="${file.download_url}" alt="${file.name}">`;
+                } else if (ext === 'pdf') {
+                    // PDF viewing
+                    contentEl.className = 'viewer-content';
+                    contentEl.innerHTML = `
+                        <iframe src="${file.download_url}" 
+                                style="width:100%;height:60vh;border:none;"
+                                title="${file.name}"></iframe>
+                    `;
+                } else {
+                    // Text/Code viewing
+                    const text = await response.text();
+                    contentEl.className = 'viewer-content markdown';
+                    contentEl.innerHTML = `<pre><code>${escapeHtml(text)}</code></pre>`;
+                }
+            } catch (error) {
+                contentEl.innerHTML = '<p>Error loading file</p>';
+            }
+        }
+        
+        // Close viewer
+        function closeViewer() {
+            document.getElementById('viewer').classList.add('hidden');
+            document.getElementById('fileList').classList.remove('hidden');
+            currentFile = null;
+        }
+        
+        // Download file
+        function downloadFile() {
+            if (currentFile) {
+                window.open(currentFile.download_url, '_blank');
+            }
+        }
+        
+        // Open raw file
+        function openRaw() {
+            if (currentFile) {
+                window.open(currentFile.download_url, '_blank');
+            }
+        }
+        
+        // Show viewer
+        function showViewer(filename) {
+            document.getElementById('fileList').classList.add('hidden');
+            document.getElementById('viewer').classList.remove('hidden');
+            document.getElementById('viewerTitle').textContent = filename;
+            updateBreadcrumb();
+        }
+        
+        // Update breadcrumb
+        function updateBreadcrumb() {
+            const breadcrumb = document.getElementById('breadcrumb');
+            if (currentPath) {
+                const parts = currentPath.split('/');
+                let html = '<a href="/">🏠 Home</a>';
+                let path = '';
+                parts.forEach((part, i) => {
+                    path += (i > 0 ? '/' : '') + part;
+                    html += ` / <a href="?path=${path}">${part}</a>`;
+                });
+                breadcrumb.innerHTML = html;
+            } else {
+                breadcrumb.innerHTML = '🏠 Home';
+            }
+        }
+        
+        // Show loading
+        function showLoading() {
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('fileList').classList.add('hidden');
+            document.getElementById('emptyState').classList.add('hidden');
+        }
+        
+        // Hide loading
+        function hideLoading() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('fileList').classList.remove('hidden');
+        }
+        
+        // Show empty state
+        function showEmpty() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('fileList').classList.add('hidden');
+            document.getElementById('emptyState').classList.remove('hidden');
+        }
+        
+        // Format file size
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
     </script>
 </body>
 </html>
